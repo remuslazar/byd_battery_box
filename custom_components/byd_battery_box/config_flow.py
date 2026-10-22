@@ -72,12 +72,13 @@ async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
     try:
         await hub.init_data(close=True)
     except Exception as e:
-        # Ensure the Modbus connection is closed on failure.
-        # BYD batteries only allow one concurrent connection,
-        # so a leaked connection blocks all subsequent attempts.
-        await hub.close()
         _LOGGER.error(f"Cannot start hub {e}")
         raise CannotConnect
+    finally:
+        # Close the test connection on every path, success included.
+        # BYD batteries only allow one concurrent connection,
+        # so a leaked connection blocks the new entry's own setup.
+        await hub.close()
 
     await asyncio.sleep(.1)
     #result = await hub.test_connection()

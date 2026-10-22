@@ -111,8 +111,11 @@ class Hub:
             await self._hass.async_add_executor_job(self.check_pymodbus_version)
             await self._hass.async_add_executor_job(self._bydclient.update_log_from_file)
             await self._bydclient.init_data(close = close)
-            # Start connection health monitoring
-            self._bydclient.health_monitor.start_monitoring()
+            # Start connection health monitoring, but not for a one-off
+            # connection test (close=True): the monitor's first read would
+            # reconnect and hold the battery's only Modbus connection.
+            if not close:
+                self._bydclient.health_monitor.start_monitoring()
             self._compute_delta_c_v()
             self.update_entities()
 

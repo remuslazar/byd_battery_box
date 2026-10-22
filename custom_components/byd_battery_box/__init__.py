@@ -53,6 +53,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # needs to unload itself, and remove callbacks. See the classes for further
     # details
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        # Release the Modbus connection: the battery serves one client, so a
+        # reload or a re-added entry cannot connect while it is still open.
+        await entry.runtime_data.close()
 
     return unload_ok
 
