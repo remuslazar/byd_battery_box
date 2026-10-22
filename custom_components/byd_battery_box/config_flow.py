@@ -7,7 +7,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries, exceptions
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, CONF_SCAN_INTERVAL
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 
 from .const import (
     CONF_BMS_SCAN_INTERVAL,
@@ -50,6 +50,15 @@ DATA_SCHEMA = vol.Schema(
     }
 )
 
+def validate_scan_intervals(data: dict) -> None:
+    """Check the scan intervals against their minimums."""
+    if data[CONF_SCAN_INTERVAL] < 10:
+        raise ScanIntervalTooShort
+    if data[CONF_BMS_SCAN_INTERVAL] < 60:
+        raise BmsScanIntervalTooShort
+    if data[CONF_LOG_SCAN_INTERVAL] < 120:
+        raise LogScanIntervalTooShort
+
 async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
     """Validate the user input allows us to connect.
 
@@ -61,12 +70,7 @@ async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
         raise InvalidHost
     if not (1 <= data[CONF_PORT] <= 65535):
         raise InvalidPort
-    if data[CONF_SCAN_INTERVAL] < 10:
-        raise ScanIntervalTooShort
-    if data[CONF_BMS_SCAN_INTERVAL] < 60:
-        raise BmsScanIntervalTooShort
-    if data[CONF_LOG_SCAN_INTERVAL] < 120:
-        raise LogScanIntervalTooShort
+    validate_scan_intervals(data)
 
     hub = Hub(hass, data[CONF_NAME], data[CONF_HOST], data[CONF_PORT], data[CONF_UNIT_ID], data[CONF_SCAN_INTERVAL], data[CONF_BMS_SCAN_INTERVAL], data[CONF_LOG_SCAN_INTERVAL])
     try:
@@ -135,6 +139,38 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> OptionsFlowHandler:
+        """Return the options flow."""
+        return OptionsFlowHandler()
+
+class OptionsFlowHandler(config_entries.OptionsFlowWithReload):
+    """Change the scan intervals; the entry reloads with the new values."""
+
+    async def async_step_init(self, user_input=None):
+        errors = {}
+        if user_input is not None:
+            try:
+                validate_scan_intervals(user_input)
+                return self.async_create_entry(data=user_input)
+            except ScanIntervalTooShort:
+                errors["base"] = "scan_interval_too_short"
+            except BmsScanIntervalTooShort:
+                errors["base"] = "bms_scan_interval_too_short"
+            except LogScanIntervalTooShort:
+                errors["base"] = "log_scan_interval_too_short"
+
+        current = {**self.config_entry.data, **self.config_entry.options}
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_SCAN_INTERVAL, default=current.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): int,
+                vol.Required(CONF_BMS_SCAN_INTERVAL, default=current.get(CONF_BMS_SCAN_INTERVAL, DEFAULT_BMS_SCAN_INTERVAL)): int,
+                vol.Required(CONF_LOG_SCAN_INTERVAL, default=current.get(CONF_LOG_SCAN_INTERVAL, DEFAULT_LOG_SCAN_INTERVAL)): int,
+            }
+        )
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
 
 class CannotConnect(exceptions.HomeAssistantError):
     """Error to indicate we cannot connect."""

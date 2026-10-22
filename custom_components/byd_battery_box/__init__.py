@@ -26,9 +26,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: HubConfigEntry) -> bool:
     host = entry.data[CONF_HOST]
     port = entry.data[CONF_PORT]
     unit_id = entry.data.get(CONF_UNIT_ID, 1)
-    scan_interval = entry.data[CONF_SCAN_INTERVAL]
-    scan_interval_bms = entry.data[CONF_BMS_SCAN_INTERVAL]
-    scan_interval_log = entry.data[CONF_LOG_SCAN_INTERVAL]
+    # Scan intervals set in the options dialog override those from the setup.
+    settings = {**entry.data, **entry.options}
+    scan_interval = settings[CONF_SCAN_INTERVAL]
+    scan_interval_bms = settings[CONF_BMS_SCAN_INTERVAL]
+    scan_interval_log = settings[CONF_LOG_SCAN_INTERVAL]
 
     _LOGGER.debug("Setup %s.%s", DOMAIN, name)
 

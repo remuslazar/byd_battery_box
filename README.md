@@ -44,6 +44,8 @@ The key BMU Status data will by default refreshed 30 seconds.
 
 Detailed BMS data will be refreshed by default every 10 minutes.
 
+The three scan intervals can be changed later under *Settings → Devices & services → BYD Battery Box → Configure*; the integration reloads with the new values.
+
 # Log data
 The log data is by default updated every 10 minutes. Log data is stored in /config/custom_components/byd_battery_box/logs folder. The integration uses the json file for storage and for convenience a CSV file is being stored as well.
 
