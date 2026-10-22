@@ -20,7 +20,7 @@ jobs:
       - name: Install ruff
         run: pip install ruff
       - name: Run ruff check
-        run: ruff check custom_components/
+        run: ruff check custom_components/ tests/
 
   syntax-check:
     name: Python Syntax Check
@@ -32,6 +32,19 @@ jobs:
           python-version: "3.12"
       - name: Compile all Python files
         run: python -m py_compile custom_components/byd_battery_box/*.py
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install test requirements
+        run: pip install -r requirements_test.txt
+      - name: Run pytest
+        run: pytest
 
   # ─── Integration Metadata Checks (blocking) ───────────────────
 
@@ -91,7 +104,7 @@ jobs:
 
   release:
     name: Version Bump & Release
-    needs: [lint, syntax-check, hacs-validation, hassfest]
+    needs: [lint, syntax-check, tests, hacs-validation, hassfest]
     # Only run on push to main, never on PRs
     # Skip if this commit was already a version bump (recursion guard)
     if: >-

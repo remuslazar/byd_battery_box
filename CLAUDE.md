@@ -179,6 +179,10 @@ ruff check custom_components/
 # Auto-fix lint issues
 ruff check --fix custom_components/
 
+# Tests (Python 3.14, Home Assistant 2026.10+)
+pip install -r requirements_test.txt
+pytest
+
 # Syntax check
 python -m py_compile custom_components/byd_battery_box/*.py
 
@@ -202,7 +206,7 @@ The `logs/` directory is created at runtime. Log entries contain timestamp, unit
 
 - ~~`config_flow.py:123-126` has a bug~~ — **FIXED**: `InvalidPort` and `InvalidHost` exception handlers now have correct error keys
 - ~~README sensor tables are empty ("To come!")~~ — **FIXED**: All sensor tables populated
-- `client_test.py` is minimal, no comprehensive test suite exists
+- `client_test.py` is a manual script; the tests are in `tests/` (pytest with `pytest-homeassistant-custom-component`, see `requirements_test.txt`): config and options flow against a fake one-client BMU (`tests/fake_bmu.py`), and the BMS cell decoding for HVS and HVM
 - `bydboxclient.py` — `get_log_list()` dict key renamed from duplicate `'data'` to `'hexdata'` for raw hex data
 
 ### Concurrency Safety
