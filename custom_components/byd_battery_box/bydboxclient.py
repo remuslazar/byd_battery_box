@@ -439,8 +439,8 @@ class BydBoxClient(ExtModbusClient):
         self.data['inverter'] = self._get_inverter_model(model, inverter_id)
         self.data['model'] = model
         self.data['capacity'] = capacity
-        self.data['sensors_t'] = self._cells
-        self.data['cells'] = self._temps
+        self.data['sensors_t'] = self._temps
+        self.data['cells'] = self._cells
 
         return True
 
@@ -527,17 +527,20 @@ class BydBoxClient(ExtModbusClient):
         min_temp = self._client.convert_from_registers(regs[5:6], data_type = self._client.DATATYPE.INT16)
         max_temp_cell_module, min_temp_cell_module = self.convert_from_registers_int8(regs[6:7])
 
+        # Balancing flags: one bit per cell, 16 cells per register, the
+        # modules one after another (HVM/LVS 1 register per module, HVS 2).
+        flag_regs = max(1, (self._cells + 15) // 16)
         cell_balancing = []
         balancing_cells = 0
         for m in range(self._modules):
-            flags = self._client.convert_from_registers(regs[7+m:7+m+1], data_type = self._client.DATATYPE.UINT16)
             bl = []
-            for bit in range(16):
-                #b = flags & (1>>bit)
-                b = flags >> bit & 1
-                #_LOGGER.debug(f'bit {b} {flags} {bit} {m}')
-                balancing_cells += b
-                bl.append(b)
+            for r in range(flag_regs):
+                pos = 7 + m * flag_regs + r
+                flags = self._client.convert_from_registers(regs[pos:pos+1], data_type = self._client.DATATYPE.UINT16)
+                for bit in range(16):
+                    b = flags >> bit & 1
+                    balancing_cells += b
+                    bl.append(b)
             cell_balancing.append({'m':m+1, 'b':bl})
 
         # TODO: change to use standard pymodbus function once HA has been upgraded to later version
@@ -585,16 +588,21 @@ class BydBoxClient(ExtModbusClient):
         if self._temps > 0:
             temp_parts = round(self._temps/2)
 
+        # Cell voltages (one register each) and temperatures (two per register)
+        # follow module after module: the stride is the module's own count,
+        # 16 cells / 4 registers on HVM and LVS, 32 cells / 6 registers on HVS.
         for m in range(self._modules):
             values = []
             for i in range(self._cells):
-                 voltage = self._client.convert_from_registers(regs_voltages[i+m*16:i+m*16+1], data_type = self._client.DATATYPE.INT16)
+                 pos = m * self._cells + i
+                 voltage = self._client.convert_from_registers(regs_voltages[pos:pos+1], data_type = self._client.DATATYPE.INT16)
                  values.append(voltage)
             all_cell_voltages += values
             cell_voltages.append({'m':m+1, 'v':values})
             values = []
             for i in range(temp_parts):
-                values += self.convert_from_registers_int8(regs_temps[i+m*4:i+m*4+1])
+                pos = m * temp_parts + i
+                values += self.convert_from_registers_int8(regs_temps[pos:pos+1])
             all_cell_temps += values
             cell_temps.append({'m':m+1, 't':values})
 
