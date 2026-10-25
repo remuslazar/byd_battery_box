@@ -7,9 +7,11 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, CONF_SCAN_INTERVAL, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 
 from . import hub
 from .const import CONF_BMS_SCAN_INTERVAL, CONF_LOG_SCAN_INTERVAL, CONF_UNIT_ID, DOMAIN
+from .extmodbusclient import ModbusConnectionError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +42,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: HubConfigEntry) -> bool:
 
     try:
         await entry.runtime_data.init_data()
+    except ModbusConnectionError as err:
+        # The battery may still be off or starting, e.g. after a power cut:
+        # Home Assistant retries the setup with a growing delay.
+        await entry.runtime_data.close()
+        raise ConfigEntryNotReady(str(err)) from err
     except Exception:
         await entry.runtime_data.close()
         raise
