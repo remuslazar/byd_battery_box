@@ -60,8 +60,9 @@ class FakeBmu:
     def port(self) -> int:
         return self._server.sockets[0].getsockname()[1]
 
-    async def start(self) -> FakeBmu:
-        self._server = await asyncio.start_server(self._handle, "127.0.0.1", 0)
+    async def start(self, port: int = 0) -> FakeBmu:
+        """Listen on a free port, or on `port` again after stop()."""
+        self._server = await asyncio.start_server(self._handle, "127.0.0.1", port)
         return self
 
     async def stop(self) -> None:

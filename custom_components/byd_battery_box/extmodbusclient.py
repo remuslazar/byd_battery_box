@@ -28,6 +28,9 @@ except ImportError:
 
 _LOGGER = logging.getLogger(__name__)
 
+class ModbusConnectionError(Exception):
+    """The device cannot be reached or does not answer."""
+
 class ExtModbusClient:
     busy = False
 
@@ -36,7 +39,11 @@ class ExtModbusClient:
         self._host = host
         self._port = port
         self._unit_id = unit_id
-        self._client = AsyncModbusTcpClient(host=host, port=port, framer=framer, timeout=timeout)
+        # No automatic reconnect: _check_and_reconnect() connects before each
+        # request. pymodbus's own loop does not check for a live connection,
+        # so after an outage it opened a second one beside it, which a
+        # one-client device refuses, and every request after that failed.
+        self._client = AsyncModbusTcpClient(host=host, port=port, framer=framer, timeout=timeout, reconnect_delay=0)
         _LOGGER.debug(f'client timeout {timeout}')
 
     def close(self):
@@ -55,7 +62,7 @@ class ExtModbusClient:
                 break
 
         if not self._client.connected:
-            raise Exception(
+            raise ModbusConnectionError(
                 f"Failed to connect to {self._host}:{self._port} unit id: {self._unit_id} retries: {retries}")
         _LOGGER.debug("successfully connected to %s:%s", self._client.comm_params.host, self._client.comm_params.port)
         return True

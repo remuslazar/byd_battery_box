@@ -35,7 +35,7 @@ from .bydbox_const import (
     PHASE_LIST,
     WORKING_AREA,
 )
-from .extmodbusclient import ExtModbusClient
+from .extmodbusclient import ExtModbusClient, ModbusConnectionError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -188,15 +188,25 @@ class BydBoxClient(ExtModbusClient):
             if not self._client.connected:
                 await self._client.connect()
 
+            # No answer is a connection fault the setup retries; anything
+            # else while decoding the answer is not.
             try:
-                await self.update_info_data()
+                answered = await self.update_info_data()
+            except ModbusConnectionError:
+                raise
             except Exception:
                 raise Exception(f"Error reading base info unit id: {self._unit_id}")
+            if not answered:
+                raise ModbusConnectionError(f"No answer reading base info unit id: {self._unit_id}")
 
             try:
-                await self.update_ext_info_data()
+                answered = await self.update_ext_info_data()
+            except ModbusConnectionError:
+                raise
             except Exception:
                 raise Exception(f"Error reading ext info unit id: {self._unit_id}")
+            if not answered:
+                raise ModbusConnectionError(f"No answer reading ext info unit id: {self._unit_id}")
 
             self.initialized = True
             if close:
